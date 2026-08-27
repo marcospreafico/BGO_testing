@@ -1,4 +1,6 @@
 
+gErrorIgnoreLevel = kWarning;
+
 double langau(double *x, double *par) {
 
     //Fit parameters:
@@ -63,15 +65,12 @@ double langauExpo(double *x, double *par)
     return lang + expo;
 }
 
-void ana_fit(){
-    bool dofit = true; 
+void ana_fit(int batch){
 
     gStyle->SetOptFit(1111); 
 
-    string fname = "./out/batch2.root";
-    string outname  = "./pdf/batch2_fit.pdf";
-    
-    int batch = 2; 
+    string fname = Form("./out/batch%i.root", batch);
+    string outname  = Form("./pdf/batch%i_fit.pdf", batch);
 
     ifstream crs_map_file(Form("data/batch_%i_map.dat", batch));
     map<int, int> crs_map; 
@@ -102,25 +101,38 @@ void ana_fit(){
   for(int crs = 0; crs < 55; crs++){
     for(int pl = 0; pl < 4; pl++){
         hQ_range[crs][pl] = new TH1D(Form("hQ_range_%i_%i", crs, pl), 
-        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs, pl), 20, 0, 4000); 
+        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs, pl), 25,  200, 4000); 
     }
   }
 
   for(int ii = 0; ii < t->GetEntries(); ii++){
     t->GetEntry(ii); 
-    cout << ii << " " << ch << " " << seed << endl; 
-    
     hQ_range[ch][seed]->Fill(q); 
   }
 
  
 TH1D* hQ[55][4]; 
   for(int crs = 0; crs < 55; crs++){
+    double xmin = 4000, xmax = 0; 
+
     for(int pl = 0; pl < 4; pl++){
-        double mu = hQ_range[crs][pl]->GetBinCenter(hQ_range[crs][pl]->GetMaximumBin());
+        double mu = 0; 
+        for(int ii = 2; ii < 20; ii++){
+            double x = hQ_range[crs][pl]->GetBinCenter(ii);
+            double y = hQ_range[crs][pl]->GetBinContent(ii);
+            if(y > hQ_range[crs][pl]->GetBinContent(hQ_range[crs][pl]->FindBin(mu))) mu = x;
+        }
         double rms = hQ_range[crs][pl]->GetRMS();
+        double xmini = ((mu-rms > 200) ? mu-rms : 200);
+        double xmaxi = mu+2*rms;
+
+        if(xmini < xmin) xmin = xmini;
+        if(xmaxi > xmax) xmax = xmaxi;
+    }
+
+    for(int pl = 0; pl < 4; pl++){
         hQ[crs][pl] = new TH1D(Form("hQ_%i_%i", crs, pl), 
-        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs_map[crs+1], pl), 25, mu-rms, mu+2*rms); 
+        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs_map[crs+1], pl), 20, xmin, xmax); 
         hQ[crs][pl]->SetLineColor(pl+1); 
     }
   }
@@ -134,7 +146,6 @@ TH1D* hQ[55][4];
     t->GetEntry(ii); 
     
     int x = 4 - ch % 5, y = (int) ch / 5; 
-    cout << ch << " " <<  x << " " << y << endl;
     hcount[seed]->Fill(x, y); 
     
     hQ[ch][seed]->Fill(q); 
@@ -201,7 +212,12 @@ for(int ib = 2; ib < hist->GetNbinsX(); ib++){
     }
 }
 
-double peak = hQ[crs][pl]->GetBinCenter(hQ[crs][pl]->GetMaximumBin());
+double peak = 2000; 
+for(int ii = 3; ii < hQ[crs][pl]->GetNbinsX(); ii++){
+    double x = hQ_range[crs][pl]->GetBinCenter(ii);
+    double y = hQ_range[crs][pl]->GetBinContent(ii);
+    if(y > hQ_range[crs][pl]->GetBinContent(hQ_range[crs][pl]->FindBin(peak))) peak = x;
+}
 
 double rms = hQ[crs][pl]->GetRMS();
 
@@ -237,7 +253,7 @@ flandau[crs][pl]->SetParameter(3, TMath::Log(std::max(1.0, hQ[crs][pl]->GetBinCo
 flandau[crs][pl]->SetParameter(4, -1.0/rms);
 flandau[crs][pl]->SetParLimits(4, -0.1, -1e-6);
 
-hQ[crs][pl]->Fit(flandau[crs][pl], "BL");
+hQ[crs][pl]->Fit(flandau[crs][pl], "QBL");
 
 hQ[crs][pl]->Draw();
 flandau[crs][pl]->Draw("same");
@@ -327,7 +343,7 @@ flangau[crs][pl]->SetParLimits(
 );
 
 
-hQ[crs][pl]->Fit(flangau[crs][pl], "BL");
+hQ[crs][pl]->Fit(flangau[crs][pl], "QBL");
 
 hQ[crs][pl]->Draw();
 flangau[crs][pl]->Draw("same");
@@ -392,8 +408,6 @@ cfit->Print(outname.c_str());
         if(type > 8) type = 16-type; 
 
         double  y = H[type-1] + (h[type-1]-H[type-1])/24*x;
-
-        cout << y << " " << Ediff*y << " " << flangau[crs][pl]->GetParameter(1) << endl;
 
         gr_att[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)); 
         gr_att[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1));
@@ -475,9 +489,16 @@ for(int ii = 0; ii < 8; ii++){
 }
 
 
-for(int ii = 0; ii < 55; ii++){
+ofstream ofile_ly(Form("out/LY_batch_%i.dat", batch));
 
-    cout << crs_map[ii+1] << " " << ly_map[ii] << endl;
+for(int ii = 0; ii < 55; ii++){
+    ofile_ly << crs_map[ii+1] << "\t" ; 
+  gr_ly[ii]->Sort();
+
+    for(int jj = 0; jj < 4; jj ++){
+      ofile_ly << gr_ly[ii]->GetPointY(jj) << "\t";
+    } 
+    ofile_ly << ly_map[ii] << endl; 
 }
 
 
