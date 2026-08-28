@@ -116,18 +116,13 @@ TH1D* hQ[55][4];
     double xmin = 4000, xmax = 0; 
 
     for(int pl = 0; pl < 4; pl++){
-        double mu = 0; 
-        for(int ii = 2; ii < 20; ii++){
-            double x = hQ_range[crs][pl]->GetBinCenter(ii);
-            double y = hQ_range[crs][pl]->GetBinContent(ii);
-            if(y > hQ_range[crs][pl]->GetBinContent(hQ_range[crs][pl]->FindBin(mu))) mu = x;
-        }
-        double rms = hQ_range[crs][pl]->GetRMS();
-        double xmini = ((mu-rms > 200) ? mu-rms : 200);
-        double xmaxi = mu+2*rms;
+        double probs[2] = {0.05, 0.95};
+        double q[2];
 
-        if(xmini < xmin) xmin = xmini;
-        if(xmaxi > xmax) xmax = xmaxi;
+        hQ_range[crs][pl]->GetQuantiles(2, q, probs);
+
+        if(q[0] < xmin) xmin = q[0];
+        if(q[1] > xmax) xmax = q[1];
     }
 
     for(int pl = 0; pl < 4; pl++){
