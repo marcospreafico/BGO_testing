@@ -101,7 +101,7 @@ void ana_fit(int batch){
   for(int crs = 0; crs < 55; crs++){
     for(int pl = 0; pl < 4; pl++){
         hQ_range[crs][pl] = new TH1D(Form("hQ_range_%i_%i", crs, pl), 
-        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs, pl), 25,  200, 4000); 
+        Form("Charge crs %i - trg %i; Q (phe); A.U.", crs, pl), 25,  200, 4000); 
     }
   }
 
@@ -132,7 +132,7 @@ TH1D* hQ[55][4];
 
     for(int pl = 0; pl < 4; pl++){
         hQ[crs][pl] = new TH1D(Form("hQ_%i_%i", crs, pl), 
-        Form("Charge crs %i - trg %i; Q (nWb); A.U.", crs_map[crs+1], pl), 20, xmin, xmax); 
+        Form("Charge crs %i - trg %i; Q (phe); A.U.", crs_map[crs+1], pl), 25 , xmin, xmax); 
         hQ[crs][pl]->SetLineColor(pl+1); 
     }
   }

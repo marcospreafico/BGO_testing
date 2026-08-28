@@ -1,9 +1,10 @@
+
+gErrorIgnoreLevel = kWarning;
+
 ULong64_t time_slice_length = 1e9; 
 
-void preprocess(){
-    string fname = "./data/260818.root";
-    
-    int batch = 2; 
+void preprocess(int runN, int batch){
+    string fname = Form("./data/%i.root", runN);
 
     ifstream crs_map_file(Form("data/batch_%i_map.dat", batch));
     map<int, int> crs_map; 

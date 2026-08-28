@@ -1,4 +1,6 @@
 
+gErrorIgnoreLevel = kWarning;
+
   const double deltat_evt = 500e3; // delay between trg and plastic
    const double deltat_coinc = 30e3;
 
@@ -78,13 +80,11 @@ double langau(double *x, double *par) {
           return (par[2]*step*sum*invsq2pi / par[3]);
 }
 
-void event_builder(){
+void event_builder(int runN, int batch){
     bool dofit = true; 
 
-    string fnamedata = "./data/260816.root";
+    string fnamedata = Form("./data/%i.root", runN);
     
-    int batch = 2; 
-
     ifstream crs_map_file(Form("data/batch_%i_map.dat", batch));
     map<int, int> crs_map; 
 
@@ -539,7 +539,7 @@ for(int crs = 0; crs < 55; crs++){
         double q[2];
         hQ[crs][pl]->GetQuantiles(2, q, probs);
         flandau[crs][pl] = new TF1(Form("flandau_%i_%i", crs, pl), "landau", q[0], q[1]); 
-        hQ[crs][pl]->Fit(flandau[crs][pl], "r"); 
+        hQ[crs][pl]->Fit(flandau[crs][pl], "rq"); 
         hQ[crs][pl]->Draw(); 
         flandau[crs][pl]->Draw("samel"); 
 
@@ -554,7 +554,7 @@ for(int crs = 0; crs < 55; crs++){
         double sigma = flandau[crs][pl]->GetParameter(2); 
         flangau[crs][pl] = new TF1(Form("flangau_%i_%i", crs, pl), langau, mu-1.5*sigma, mu+5*sigma, 4);
         flangau[crs][pl]->SetParameters(sigma, mu, 1000, 2); 
-        hQ[crs][pl]->Fit(flangau[crs][pl], "r"); 
+        hQ[crs][pl]->Fit(flangau[crs][pl], "rq"); 
         hQ[crs][pl]->Draw(); 
         flangau[crs][pl]->Draw("samel"); 
 
