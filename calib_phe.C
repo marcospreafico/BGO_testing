@@ -1,7 +1,7 @@
 ULong64_t time_slice_length = 1e9; 
 
 void calib_phe(){
-    string fname = "./data/phe_260818.root";
+    string fname = "./data/phe_260807.root";
     
     const size_t start = fname.find_last_of("/\\") + 1;
     const size_t end   = fname.find_last_of('.');
@@ -29,6 +29,46 @@ void calib_phe(){
     int nsamples = wf->GetSize(); 
     int nbaseline = 5; 
 
+    TH1D* hq_range[63]; 
+    TH1D* hA_range[63]; 
+    for(int ii = 0; ii < 63; ii++){
+        hq_range[ii] = new TH1D(Form("hq_range_%i", ii), Form("Q crs %i; Q (pWb); A.U.", ii), 100, 0, 0); 
+        hA_range[ii] = new TH1D(Form("hA_range_%i", ii), Form("A crs %i; A (V); A.U.", ii), 50, 0, 0); 
+    }
+
+    for(int ii = 0; ii < t->GetEntries(); ii++){
+         t->GetEntry(ii);
+
+        int idch = ch-1; 
+        if(idch < 0) continue; 
+
+        double baseline = 0; 
+        for(int jj = 0; jj < nbaseline; jj++){
+            baseline += wf->GetAt(jj)/nbaseline; 
+        }
+
+        double Q = 0; 
+        double ymin = 1e9, ymax = -1e9; 
+        double thr = 0.01; 
+        for(int jj = 0; jj < nsamples; jj++){
+            double y = (baseline-wf->GetAt(jj))/16384.;
+            if(8*jj > 60 && 8*jj < 300) {
+                Q += (y*1000*8);
+                if(y>ymax) ymax = y; 
+                if(y<ymin) ymin = y; 
+            }
+        }
+
+        double A = ymax-ymin;
+        if(ch > 55 && A < 0.001) continue;
+
+        if(ch != 0){ 
+        hA_range[idch]->Fill(A); 
+        hq_range[idch]->Fill(Q); 
+        }
+    }
+
+
     TH2D* hwf[63]; 
     TH1D* hq[63]; 
     TH1D* hA[63]; 
@@ -36,8 +76,12 @@ void calib_phe(){
     for(int ii = 0; ii < 63; ii++){
         hwf[ii] = new TH2D(Form("hwf_%i", ii), Form("Crs %i; t (ns); A (V)", ii+1), 
                 nsamples, 0, 8*nsamples, 1000, -0.001, 0.01);
-        hq[ii] = new TH1D(Form("hq_%i", ii), Form("Q crs %i; Q (pWb); A.U.", ii), 100, 25, 575); 
-        hA[ii] = new TH1D(Form("hA_%i", ii), Form("A crs %i; A (V); A.U.", ii), 50, 0.002, 0.02); 
+        double qrange[2] = {0, 0}; 
+        hq_range[ii]->GetQuantiles(2, qrange, (double[2]){0.05, 0.995});
+        hq[ii] = new TH1D(Form("hq_%i", ii), Form("Q crs %i; Q (pWb); A.U.", ii), 100, qrange[0], qrange[1]); 
+        double arange[2] = {0, 0}; 
+        hA_range[ii]->GetQuantiles(2, arange, (double[2]){0.02, 0.9999});
+        hA[ii] = new TH1D(Form("hA_%i", ii), Form("A crs %i; A (V); A.U.", ii), 50, arange[0], arange[1]); 
     }
 
     TFile* fout = new TFile(outname.c_str(), "recreate"); 
@@ -145,6 +189,17 @@ void calib_phe(){
         //     fgaus[ii]->SetParameter(jj, fit_param[ii][jj]); 
         // }
         fgaus[ii]->SetParameters(A1, Q1, 24, A1/10, 2*Q1, 24, A1/100, 3*Q1, 24);
+        // 1 phe
+    fgaus[ii]->SetParLimits(1, 0.7*Q1, 1.3*Q1);
+    fgaus[ii]->SetParLimits(2, 10, 50);
+
+    // 2 phe
+    fgaus[ii]->SetParLimits(4, 1.5*Q1, 2.5*Q1);
+    fgaus[ii]->SetParLimits(5, 10, 50);
+            // 3 phe
+    fgaus[ii]->SetParLimits(7, 2.5*Q1, 3.5*Q1);
+    fgaus[ii]->SetParLimits(8, 10, 50);
+
         hq[ii]->Fit(fgaus[ii], "R"); 
         fgaus[ii]->Draw("samel");
         }
