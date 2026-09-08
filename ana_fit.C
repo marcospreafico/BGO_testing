@@ -111,26 +111,56 @@ void ana_fit(int batch){
   }
 
  
-TH1D* hQ[55][4]; 
-  for(int crs = 0; crs < 55; crs++){
-    double xmin = 4000, xmax = 0; 
+TH1D* hQ[55][4];
+
+for(int crs = 0; crs < 55; crs++){
+
+
+    double peak_min = 1e9;
+    double peak_max = -1e9;
 
     for(int pl = 0; pl < 4; pl++){
-        double probs[2] = {0.05, 0.95};
-        double q[2];
 
-        hQ_range[crs][pl]->GetQuantiles(2, q, probs);
+        double peak =
+            hQ_range[crs][pl]->GetBinCenter(
+                hQ_range[crs][pl]->GetMaximumBin()
+            );
 
-        if(q[0] < xmin) xmin = q[0];
-        if(q[1] > xmax) xmax = q[1];
+        if(peak < peak_min) peak_min = peak;
+        if(peak > peak_max) peak_max = peak;
     }
+
+    double center = 0.5*(peak_min + peak_max);
+
+    double spread = 0.5*(peak_max - peak_min);
+
+    double margin = 0.6*center;
+
+    double half_range = spread + margin;
+
+    double xmin = 0.5*peak_min;
+    double xmax = 1.5*peak_max;
+
+    if(xmin < 200)
+        xmin = 200;
 
     for(int pl = 0; pl < 4; pl++){
-        hQ[crs][pl] = new TH1D(Form("hQ_%i_%i", crs, pl), 
-        Form("Charge crs %i - trg %i; Q (phe); A.U.", crs_map[crs+1], pl), 25 , xmin, xmax); 
-        hQ[crs][pl]->SetLineColor(pl+1); 
+
+    int nbins = 25; 
+    if(hQ_range[crs][pl]->GetEntries() < 200) nbins = 20; 
+
+        hQ[crs][pl] = new TH1D(
+            Form("hQ_%i_%i", crs, pl),
+            Form("Charge crs %i - trg %i; Q (phe); A.U.",
+                 crs_map[crs+1], pl),
+            nbins,
+            xmin,
+            xmax
+        );
+
+        hQ[crs][pl]->SetLineColor(pl+1);
     }
-  }
+}
 
   TH2D* hcount[4]; 
   for(int ii = 0; ii < 4; ii++){
@@ -377,6 +407,9 @@ cfit->Print(outname.c_str());
 
   vector<double> ly_map(55); 
 
+
+ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
+
   catt->Divide(10, 6); 
   for(int crs = 0; crs < 55; crs++){
     gr_att[crs] = new TGraphErrors(); 
@@ -389,6 +422,7 @@ cfit->Print(outname.c_str());
     gr_ly_norm[crs]->SetTitle(Form("Crs %i; x (cm); phe/MeV (normalized to average)", crs_map[crs+1]));
 
     double ly_average = 0; 
+    ofile_ly_err << crs_map[crs+1] << "\n";
     for(int pl = 0; pl < 4; pl++){
       
         if(hQ[crs][pl]->GetEntries() < 20) continue;
@@ -412,6 +446,8 @@ cfit->Print(outname.c_str());
 
         gr_ly_norm[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Ediff*y));
         gr_ly_norm[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Ediff*y));
+
+        ofile_ly_err << x << "\t" << flangau[crs][pl]->GetParameter(1)/(Ediff*y) << "\t" << flangau[crs][pl]->GetParError(1)/(Ediff*y) << "\n";
 
         ly_average += flangau[crs][pl]->GetParameter(1)/(Ediff*y);
     }
@@ -459,6 +495,7 @@ for(int ii = 0; ii < 8; ii++){
   hly_type[ii] = new TH1D(Form("hly_type_%i", ii), Form("Distribution of light yield type %i; phe/MeV; A.U.", ii+1), 100, 0, 0);
 }
 
+
 for(int ii = 0; ii < 55; ii++){
   int type = (int) crs_map[ii+1]/100;
   if(type > 8) type = 16-type; 
@@ -487,16 +524,84 @@ for(int ii = 0; ii < 8; ii++){
 ofstream ofile_ly(Form("out/LY_batch_%i.dat", batch));
 
 for(int ii = 0; ii < 55; ii++){
-    ofile_ly << crs_map[ii+1] << "\t" ; 
-  gr_ly[ii]->Sort();
+    string line = Form("%i\t", crs_map[ii+1]);
 
+    gr_ly[ii]->Sort();
+
+    double ly_avg = 0; 
     for(int jj = 0; jj < 4; jj ++){
-      ofile_ly << gr_ly[ii]->GetPointY(jj) << "\t";
+        line += Form("%f\t", gr_ly[ii]->GetPointY(jj));
+        ly_avg+= gr_ly[ii]->GetPointY(jj)/4;
     } 
-    ofile_ly << ly_map[ii] << endl; 
+    line+= Form("%f\n", ly_avg);
+
+    if(ly_avg > 0) ofile_ly << line;
 }
 
 
   catt->Print((outname + ")").c_str()); 
+
+
+  // Print out crs that need to be re-measured
+    int score[55];
+    string reason[55];
+
+    // check statistics 
+    for(int ii = 0; ii < 55; ii++){
+        reason[ii] = "";
+        score[ii] = 0;
+        bool remeasure = false; 
+        for(int jj = 0; jj < 4; jj++){
+            if(hQ[ii][jj]->GetEntries() < 150) {
+                remeasure = true; 
+                reason[ii] = "Low statistics; ";
+                if(hQ[ii][jj]->GetEntries() <10) {
+                    reason[ii] = "Broken channel";
+                    score[ii] = 100; 
+                }
+            }
+        }
+
+        if(remeasure) score[ii] += 1;
+    }
+
+    // check fit quality
+    for(int ii = 0; ii < 55; ii++){
+            bool remeasure = false; 
+        for(int jj = 0; jj < 4; jj++){
+            if(flangau[ii][jj]->GetChisquare()/flangau[ii][jj]->GetNDF() > 2) {
+                remeasure = true; 
+            } 
+        }
+            if(remeasure) {
+        score[ii]+= 1;
+                reason[ii] += "Poor fit quality; ";
+            } 
+    }
+
+    // check fit results 
+    for(int ii = 0; ii < 55; ii++){
+            bool remeasure = false;
+        for(int jj = 0; jj < 4; jj++){
+            if(flangau[ii][jj]->GetParError(1)/flangau[ii][jj]->GetParameter(1) > 0.1) {
+                remeasure = true; 
+            }
+
+            for(int kk = 0; kk < 6; kk++){
+                if(flangau[ii][jj]->GetParError(kk)/flangau[ii][jj]->GetParameter(kk) > 1) {
+                    remeasure = true; 
+                }
+            }
+        }
+        if(remeasure) {
+            score[ii] += 1;
+            reason[ii] += "Poor fit results; ";
+        }
+    }
+
+    cout << " ##### Crs that need to be re-measured #####" << endl;
+    for(int ii = 0; ii < 55; ii++){
+        if(score[ii] > 1) cout << crs_map[ii+1] << " " << reason[ii] << endl;    
+    }
 
 }
