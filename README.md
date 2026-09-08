@@ -74,6 +74,25 @@ scp streamdaq@193.206.147.141:/home/streamdaq/Documents/BGO_test/DAQ/260824/RAW/
 
 If you are not connected to the INFN network or VPN, you will need someone with access to copy the data for you.
 
+An utility script `get_data.sh` is provided to check if something is missing. Run it using 
+
+```bash
+./get_data.sh BATCH 
+```
+
+For example:
+
+```bash
+./get_data.sh 3
+```
+
+The script reads `run_list.dat`, finds all runs belonging to batch 3 and runs the reconstruction automatically.
+
+Before running it, make sure that:
+
+1. `run_list.dat` contains the correct runs.
+
+
 ## Rename the files
 
 It is strongly recommended to remove the CoMPASS prefix from the filename.
@@ -160,8 +179,7 @@ The script reads `run_list.dat`, finds all runs belonging to batch 3 and runs th
 Before running it, make sure that:
 
 1. `run_list.dat` contains the correct runs.
-2. The corresponding raw data files are present in `data/`.
-3. A calibration file exists in `calib/` for every run.
+2. The `get_data.sh` script did find all the required files 
 4. The `hadd` executable used inside `run_reco.sh` points to your ROOT installation.
 
 ## Important: `hadd`
