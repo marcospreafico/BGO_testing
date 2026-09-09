@@ -55,7 +55,7 @@ for RUN in $RUNS; do
     if [ ! -f "$DATA_FILE" ]; then
         echo "ERROR: data file $DATA_FILE missing."
         echo "Please transfer it from the DAQ machine using:"
-        echo "scp streamdaq@193.205.147.141:/home/streamdaq/Documents/BGO_test/DAQ/${RUN}/RAW/SDataR_${RUN}.root ./data/${RUN}.root"
+        echo "scp streamdaq@193.206.147.141:/home/streamdaq/Documents/BGO_test/DAQ/${RUN}/RAW/SDataR_${RUN}.root ./data/${RUN}.root"
         echo
         ALL_GOOD=false
     fi
