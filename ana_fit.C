@@ -76,10 +76,20 @@ void ana_fit(int batch){
     map<int, int> crs_map; 
 
     int crs_id, crs_counter = 0; 
-    while(crs_map_file >> crs_id){
-        crs_counter ++; 
-        crs_map[56-crs_counter] = crs_id; 
-    }
+
+   std::vector<int> crs_list;
+
+while (crs_map_file >> crs_id) {
+    crs_list.push_back(crs_id);
+}
+
+for (size_t i = 0; i < crs_list.size(); i++) {
+    crs_map[i+1] = crs_list[crs_list.size() - 1 - i];
+}
+
+for (size_t i = crs_list.size() + 1; i <= 55; i++) {
+    crs_map[i] = 999;
+}
     for(int ii = 56; ii < 60; ii++){
         crs_map[ii] = 8000+ii; 
     }
@@ -351,7 +361,7 @@ flangau[crs][pl]->SetParLimits(
     mu + 200
 );
 
-flangau[crs][pl]->SetParLimits(3, 20, 300);
+flangau[crs][pl]->SetParLimits(3, 10, 300);
 
 // Exponential amplitude
 flangau[crs][pl]->SetParLimits(
@@ -599,9 +609,20 @@ for(int ii = 0; ii < 55; ii++){
         }
     }
 
-    cout << " ##### Crs that need to be re-measured #####" << endl;
+    int counter_remeasure = 0; 
+
+    cout << "\n \n ##### Crs that need to be re-measured ##### \n \n" << endl;
     for(int ii = 0; ii < 55; ii++){
-        if(score[ii] > 1) cout << crs_map[ii+1] << " " << reason[ii] << endl;    
+        if(score[ii] > 1) {
+            cout << crs_map[ii+1] << " " << reason[ii] << endl;
+            counter_remeasure++;
+        }
     }
+
+    cout <<  "\n \n ################# \n \n"; 
+    cout << "Batch status: " << endl;
+    if(counter_remeasure < 10) cout << "All good!" << endl;
+    else cout << "Keep measuring! " << endl; 
+    cout << " \n \n ################# \n \n";
 
 }
