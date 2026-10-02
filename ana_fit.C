@@ -443,6 +443,17 @@ ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
                      (crs > 39 && crs < 45) || 
                      (crs > 49 && crs < 55) ) ? 3+pl*6 : 21-pl*6;
 
+        if(batch == 6){
+            x = (crs < 4 || 
+                    (crs > 7 && crs < 12) ||
+                     (crs > 15 && crs < 20) || 
+                     (crs > 23 && crs < 28) || 
+                     (crs == 31) ) ? 3+pl*6 : 21-pl*6;
+
+            cout << crs_map[crs+1] << " " << x << endl; 
+        }
+
+
         int type = (int) crs_map[crs+1]/100;
         if(type > 8) type = 16-type; 
 
