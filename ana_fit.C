@@ -181,6 +181,9 @@ for(int crs = 0; crs < 55; crs++){
     t->GetEntry(ii); 
     
     int x = 4 - ch % 5, y = (int) ch / 5; 
+    if(batch == 6){
+        x = 4 - ch % 4, y = (int) ch / 4;
+    }
     hcount[seed]->Fill(x, y); 
     
     hQ[ch][seed]->Fill(q); 

@@ -212,7 +212,7 @@ void event_builder(int runN, int batch){
 
     bool u[4] = {false, false, false, false}, d[4] = {false, false, false, false}; 
     for(auto hit : slice.hit){
-      if(hit.ch > 55 && hit.A > 0.4){
+      if(hit.ch > 55 && hit.A > 0.05){
         if(hit.ch < 60) d[hit.ch - 56] = true; 
         else u[hit.ch-60] = true; 
       }
@@ -255,7 +255,7 @@ void event_builder(int runN, int batch){
                         cout << "Discarding second seed because A diff > 800 mV" << endl; 
                         continue; 
                     }else{
-                        if(hit.A>thisevt.Aseed) {
+                        if(hit.A>thisevt.Aseed && hit.A>0.05) {
         thisevt.tseed = hit.t; 
         thisevt.chseed = hit.ch;
         thisevt.Aseed = hit.A; }
@@ -311,7 +311,7 @@ void event_builder(int runN, int batch){
                         cout << "Discarding second seed because A diff > 800 mV" << endl; 
                         continue; 
                     }else{
-                        if(hit.A>thisevt.Aseed) {
+                        if(hit.A>thisevt.Aseed && hit.A>0.05) {
         thisevt.tseed = hit.t; 
         thisevt.chseed = hit.ch;
         thisevt.Aseed = hit.A; }
