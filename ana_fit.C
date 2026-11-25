@@ -251,7 +251,7 @@ for(int ib = 2; ib < hist->GetNbinsX(); ib++){
 }
 
 double peak = 2000; 
-for(int ii = 3; ii < hQ[crs][pl]->GetNbinsX(); ii++){
+for(int ii = 3; ii < hQ_range[crs][pl]->GetNbinsX(); ii++){
     double x = hQ_range[crs][pl]->GetBinCenter(ii);
     double y = hQ_range[crs][pl]->GetBinContent(ii);
     if(y > hQ_range[crs][pl]->GetBinContent(hQ_range[crs][pl]->FindBin(peak))) peak = x;
@@ -411,19 +411,39 @@ cfit->Print(outname.c_str());
   TGraphErrors* gr_att[55]; 
   TGraphErrors* gr_ly[55]; 
   TGraphErrors* gr_ly_norm[55]; 
+  TGraphErrors* gr_ly_est[55];
 
   double H[8] = {4.96, 5.31, 5.27, 6.65, 6.28, 6.08, 5.80, 5.75};
   double h[8] = {2.44, 2.38, 2.13, 2.45, 2.08, 1.88, 1.74, 1.69};
-  double Ediff = 2*7; 
+  double Ediff = 0.6*2*7; 
 
   TCanvas* catt = new TCanvas(); 
 
   vector<double> ly_map(55); 
 
 
-ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
+    ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch)); 
+    ifstream ifile_simu(Form("data/simu_batch_%i.dat", batch));
+    bool has_simu = ifile_simu.good();
+    //has_simu = false; 
+    map<int, array<pair<double, double>, 4>> simu_edep; 
+    if(has_simu){
+        int crs_id; 
+        double x, edep, erredep; 
+        while(ifile_simu >> crs_id){
+        for(int ii = 0; ii < 4; ii++){
+            ifile_simu >> x >> edep >> erredep; 
+            int pl = (x-2)/6; 
+            cout << x << " " << pl << endl; 
+            simu_edep[crs_id][pl] = make_pair(edep, erredep); 
+        }
+    }   
+    }
 
   catt->Divide(10, 6); 
+
+  TF1* fatt[55]; 
+  cout << "Fitting LY " << endl; 
   for(int crs = 0; crs < 55; crs++){
     gr_att[crs] = new TGraphErrors(); 
     gr_att[crs]->SetTitle(Form("Crs %i; x (cm); phe", crs_map[crs+1])); 
@@ -431,8 +451,21 @@ ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
     gr_ly[crs] = new TGraphErrors();
     gr_ly[crs]->SetTitle(Form("Crs %i; x (cm); phe/MeV", crs_map[crs+1]));
 
+    gr_ly_est[crs] = new TGraphErrors(); 
+
+    fatt[crs] = new TF1(Form("fatt_%i", crs), "[0]+[1]*x", 0, 24); 
+    fatt[crs]->SetParameters(2000, -100); 
+
     gr_ly_norm[crs] = new TGraphErrors();
     gr_ly_norm[crs]->SetTitle(Form("Crs %i; x (cm); phe/MeV (normalized to average)", crs_map[crs+1]));
+
+    
+        map<int, double> Edep4; 
+
+        Edep4[2] = 50.0397; 
+        Edep4[8] = 43.255;
+        Edep4[14] = 35.4566;
+        Edep4[20] = 26.511;
 
     double ly_average = 0; 
     ofile_ly_err << crs_map[crs+1] << "\n";
@@ -444,14 +477,14 @@ ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
                      (crs > 19 && crs < 25) || 
                      (crs > 29 && crs < 35) || 
                      (crs > 39 && crs < 45) || 
-                     (crs > 49 && crs < 55) ) ? 3+pl*6 : 21-pl*6;
+                     (crs > 49 && crs < 55) ) ? 2+pl*6 : 20-pl*6;
 
         if(batch == 6){
             x = (crs < 4 || 
                     (crs > 7 && crs < 12) ||
                      (crs > 15 && crs < 20) || 
                      (crs > 23 && crs < 28) || 
-                     (crs == 31) ) ? 3+pl*6 : 21-pl*6;
+                     (crs == 31) ) ? 2+pl*6 : 20-pl*6;
 
             cout << crs_map[crs+1] << " " << x << endl; 
         }
@@ -462,34 +495,57 @@ ofstream ofile_ly_err(Form("out/LY_err_batch_%i.dat", batch));
 
         double  y = H[type-1] + (h[type-1]-H[type-1])/24*x;
 
+        double Edep = Ediff*y;
+        if(has_simu){
+            int idpl = (x-2)/6;
+            Edep = simu_edep[crs_map[crs+1]][idpl].first; 
+            cout << Edep << " " << Ediff*y << endl;
+        }
+
+        if(type == 4) Edep = Edep4[x];
+
         gr_att[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)); 
         gr_att[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1));
 
-        gr_ly[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Ediff*y));
-        gr_ly[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Ediff*y));
+        gr_ly[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Edep));
+        gr_ly[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Edep));
 
-        gr_ly_norm[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Ediff*y));
-        gr_ly_norm[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Ediff*y));
+        gr_ly_norm[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Edep));
+        gr_ly_norm[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Edep));  
+        //ofile_ly_err << x << "\t" << flangau[crs][pl]->GetParameter(1)/(Edep) << "\t" << flangau[crs][pl]->GetParError(1)/(Edep) << "\n";
 
-        ofile_ly_err << x << "\t" << flangau[crs][pl]->GetParameter(1)/(Ediff*y) << "\t" << flangau[crs][pl]->GetParError(1)/(Ediff*y) << "\n";
+        if(has_simu){
+            gr_ly_est[crs]->SetPoint(pl, x, flangau[crs][pl]->GetParameter(1)/(Ediff*y));
+            gr_ly_est[crs]->SetPointError(pl, 1, flangau[crs][pl]->GetParError(1)/(Ediff*y));
+        }
 
-        ly_average += flangau[crs][pl]->GetParameter(1)/(Ediff*y);
+        ly_average += flangau[crs][pl]->GetParameter(1)/(Edep);
     }
 
     hly_distrib->Fill(ly_average/4.);
 
     ly_map[crs] = ly_average/4.;
 
+    gr_att[crs]->Fit(fatt[crs], "RLQB");
 
     catt->cd(crs+1); 
     gr_att[crs]->SetMarkerColor(20); 
     gr_att[crs]->Draw("AP"); 
+    fatt[crs]->Draw("samel"); 
 
     cg->cd(1);
     gr_att[crs]->Draw("ap"); 
+    fatt[crs]->Draw("samel"); 
     cg->cd(2);
     gr_ly[crs]->Draw("ap");
+    if(has_simu) {
+        gr_ly_est[crs]->SetMarkerColor(2);
+        gr_ly_est[crs]->SetMarkerStyle(20);
+        gr_ly_est[crs]->SetLineColor(2);
+        gr_ly_est[crs]->Draw("psame");
+    }
     cg->Print(outname.c_str()); 
+
   }
 
 
@@ -593,7 +649,7 @@ for(int ii = 0; ii < 55; ii++){
     for(int ii = 0; ii < 55; ii++){
             bool remeasure = false; 
         for(int jj = 0; jj < 4; jj++){
-            if(flangau[ii][jj]->GetChisquare()/flangau[ii][jj]->GetNDF() > 2) {
+            if(flangau[ii][jj]->GetChisquare()/flangau[ii][jj]->GetNDF() > 5) {
                 remeasure = true; 
             } 
         }
@@ -621,6 +677,18 @@ for(int ii = 0; ii < 55; ii++){
             score[ii] += 1;
             reason[ii] += "Poor fit results; ";
         }
+    }
+
+     // check trend of mu
+    for(int ii = 0; ii < 55; ii++){
+            bool remeasure = false; 
+            if(fatt[ii]->GetChisquare()/fatt[ii]->GetNDF() > 2) {
+                remeasure = true; 
+        }
+            if(remeasure) {
+        score[ii]+= 2;
+                reason[ii] += "Anomalous trend; ";
+            } 
     }
 
     int counter_remeasure = 0; 
